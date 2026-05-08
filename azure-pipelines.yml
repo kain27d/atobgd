@@ -6,7 +6,7 @@ trigger:
 pr:
   branches:
     include:
-    - feature/trigger-test
+    - main
   paths:
     include:
     - src/**
