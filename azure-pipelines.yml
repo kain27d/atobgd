@@ -42,6 +42,7 @@ stages:
             artifact: app-dist
 
           - script: |
+              mkdir -p /home/app1/atobgd
               cp -r $(Pipeline.Workspace)/app-dist/* /home/app1/atobgd/
               cd /home/app1/atobgd
               npm install --production
