@@ -1,14 +1,51 @@
 trigger:
 - main
 
-pool:
-  name: Default
+stages:
+# ── CI: 빌드 ──────────────────────────
+- stage: Build
+  displayName: '빌드'
+  pool:
+    name: Default          # 에이전트 서버(jm-test-ubuntu-vm)에서 빌드
+  jobs:
+  - job: BuildJob
+    steps:
+    - task: NodeTool@0
+      displayName: 'Node.js 18 설정'
+      inputs:
+        versionSpec: '18.x'
 
-steps:
-- task: Docker@2
-  displayName: 'Docker 이미지 빌드'
-  inputs:
-    command: build
-    repository: atobgd
-    Dockerfile: Dockerfile
-    tags: $(Build.BuildId)
+    - script: npm install
+      displayName: 'npm install'
+
+    - script: npm run build
+      displayName: 'npm build'
+
+    - publish: $(System.DefaultWorkingDirectory)
+      artifact: app-dist
+      displayName: '아티팩트 저장'
+
+# ── CD: 배포 ──────────────────────────
+- stage: Deploy
+  displayName: '배포'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - deployment: DeployJob
+    displayName: '배포 서버에 배포'
+    environment: 'Production.jm-test-deploy-vm'  # Environment.리소스명
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: app-dist
+
+          - script: |
+              cp -r $(Pipeline.Workspace)/app-dist/* /home/app1/atobgd/
+              cd /home/app1/atobgd
+              npm install --production
+              pm2 stop atobgd || true
+              pm2 start src/index.js --name atobgd
+              pm2 save
+            displayName: '앱 배포 및 재시작'
